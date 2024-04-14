@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 import os
-import requests
 import uuid
 from openai import OpenAI
 import boto3
@@ -70,6 +69,7 @@ def add_to_conversation():
     data = request.json
     conv_id = data.get('conversation_id')
     question = data.get('question')
+    conversation = None
 
     # If conv_id is not provided or doesn't exist, start a new conversation
     if not conv_id:
@@ -82,6 +82,7 @@ def add_to_conversation():
                 'history': []
             }
         )
+        conversation = {'id': conv_id, 'title': title, 'history': []}
     else:
         conversation = conversations.get_item(Key={'id': conv_id})['Item']
         if not conversation:
@@ -141,8 +142,12 @@ def delete_conversation(conv_id):
     
 # https://platform.openai.com/docs/api-reference/chat/create
 def send_to_gpt4(question, conv_id):
-    # Get the conversation history
-    conversation_history = conversations[conv_id]["history"]
+    response = conversations.get_item(
+        Key={
+            'id': conv_id
+        }
+    )
+    conversation_history = response['Item']['history']
 
     # Format the conversation history for the system message
     formatted_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history])
