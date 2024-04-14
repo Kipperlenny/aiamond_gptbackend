@@ -1,0 +1,49 @@
+service: aiamond-chatbot
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: eu-central-1
+  profile: default
+  environment:
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+    GPT3_MODEL: ${env:GPT3_MODEL}
+    GPT4_MODEL: ${env:GPT4_MODEL}
+  memorySize: 128 # minimum memory size for Lambda
+  timeout: 18 # timeout for Lambda
+  logRetentionInDays: 7 # keep logs for 7 days
+  apiGateway:
+    shouldStartNameWithService: true
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:*
+      Resource: "*"
+
+plugins:
+  - serverless-wsgi
+  - serverless-python-requirements
+  - serverless-dotenv-plugin
+  - serverless-offline
+
+custom:
+  wsgi:
+    app: app.app # your-handler-location should be the python file name without extension
+    packRequirements: false
+  pythonRequirements:
+    dockerizePip: non-linux
+  dotenv:
+    path: .env
+
+functions:
+  app:
+    handler: wsgi_handler.handler
+    events:
+      - http:
+          path: /
+          method: ANY
+          authorizer: aws_iam
+      - http:
+          path: '{proxy+}'
+          method: ANY
+          authorizer: aws_iam

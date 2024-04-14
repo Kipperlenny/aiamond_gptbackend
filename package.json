@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "serverless-dotenv-plugin": "^6.0.0",
+    "serverless-python-requirements": "^6.1.0",
+    "serverless-wsgi": "^3.0.3"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.1",
+    "serverless-offline": "^13.3.3"
+  }
+}
