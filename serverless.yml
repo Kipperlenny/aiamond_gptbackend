@@ -2,6 +2,7 @@ service: aiamond-gptbackend
 
 provider:
   name: aws
+  stage: dev
   runtime: python3.11
   region: eu-central-1
   profile: default
@@ -27,6 +28,7 @@ plugins:
   - serverless-offline
 
 custom:
+  stage: ${opt:stage, self:provider.stage}
   wsgi:
     app: app.app
     packRequirements: false
@@ -46,26 +48,7 @@ package:
     - venv/**
 
 resources:
-  Resources:
-    ApiGatewayUser:
-      Type: 'AWS::IAM::User'
-    ApiGatewayUserPolicy:
-      Type: 'AWS::IAM::Policy'
-      Properties:
-        PolicyName: 'ApiGatewayUserPolicy'
-        Users:
-          - Ref: ApiGatewayUser
-        PolicyDocument:
-          Statement:
-            - Effect: 'Allow'
-              Action:
-                - 'execute-api:Invoke'
-              Resource: '*'
-    ApiGatewayUserAccessKey:
-      Type: 'AWS::IAM::AccessKey'
-      Properties:
-        UserName:
-          Ref: ApiGatewayUser
+  Resources:    
     ConversationsTable:
       Type: 'AWS::DynamoDB::Table'
       Properties:
@@ -80,17 +63,45 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
 
+    CognitoUserPool:
+      Type: 'AWS::Cognito::UserPool'
+      Properties:
+        UserPoolName: ${self:service}-${self:custom.stage}-user-pool
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+      Policies:
+        AdminCreateUserConfig:
+          AllowAdminCreateUserOnly: true
+
+    CognitoUserPoolClient:
+      Type: 'AWS::Cognito::UserPoolClient'
+      Properties:
+        ClientName: ${self:service}-${self:custom.stage}-user-pool-client
+        UserPoolId:
+          Ref: CognitoUserPool
+        ExplicitAuthFlows:
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+
 functions:
   app:
     handler: wsgi_handler.handler
-    layers:
-      - Ref: PythonRequirementsLambdaLayer
     events:
       - http:
-          path: /
+          path: /api/
           method: ANY
-          authorizer: aws_iam
+          authorizer:
+            type: COGNITO_USER_POOLS
+            name: SharedCognitoAuthorizer
+            arn: 
+              Fn::GetAtt: [CognitoUserPool, Arn]
       - http:
-          path: '{proxy+}'
+          path: '/api/{proxy+}'
           method: ANY
-          authorizer: aws_iam
+          authorizer:
+            type: COGNITO_USER_POOLS
+            name: ProxyCognitoAuthorizer
+            arn: 
+              Fn::GetAtt: [CognitoUserPool, Arn]
