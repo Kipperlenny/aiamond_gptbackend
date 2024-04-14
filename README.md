@@ -37,46 +37,68 @@ After deploying, you can call your API Gateway endpoint with a POST request to i
 
 This Flask application provides the following endpoints:
 
-# Start Conversation
+### Start Conversation
 
 Endpoint: /start_conversation
+
 Method: POST
+
 Data Params: title (optional)
+
 Success Response: {"conversation_id": "<conversation_id>"} with HTTP status 201
+
 Description: Starts a new conversation and returns its ID.
 
-# Add to Conversation
+### Add to Conversation
 
 Endpoint: /add_to_conversation
+
 Method: POST
+
 Data Params: conversation_id (optional), question
+
 Success Response: {"response": "<response>", "conversation_id": "<conversation_id>"} with HTTP status 200
+
 Description: Adds a question to a conversation and returns the assistant's response.
 
-# List Conversations
+### List Conversations
 
 Endpoint: /list_conversations
+
 Method: GET
+
 Success Response: A list of conversations with their IDs and titles, with HTTP status 200
+
 Description: Returns a list of all conversations.
 
-# Get Conversation
+### Get Conversation
 
 Endpoint: /get_conversation/<conv_id>
+
 Method: GET
+
 URL Params: conv_id
+
 Success Response: The conversation history, with HTTP status 200
+
 Error Response: {"error": "Conversation not found"} with HTTP status 404
+
 Description: Returns the history of a conversation.
 
-# Delete Conversation
+### Delete Conversation
 
 Endpoint: /delete_conversation/<conv_id>
+
 Method: DELETE
+
 URL Params: conv_id
+
 Success Response: {"message": "Conversation deleted"} with HTTP status 200
+
 Error Response: {"error": "Conversation not found"} with HTTP status 404
+
 Description: Deletes a conversation.
+
 
 Please note that all data sent and received is in JSON format.
 
