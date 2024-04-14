@@ -1,12 +1,18 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import uuid
 from openai import OpenAI
 import boto3
 from boto3.dynamodb.conditions import Key
+import logging
+
+logger = logging.getLogger()
+# logger.setLevel(logging.DEBUG)
 
 app = Flask(__name__)
+CORS(app)
 load_dotenv()
 
 GPT3_MODEL = os.getenv('GPT3_MODEL')
@@ -20,7 +26,7 @@ conversations = dynamodb.Table('Conversations')
 
 client = OpenAI()
 
-@app.route('/start_conversation', methods=['POST'])
+@app.route('/api/start_conversation', methods=['POST'])
 def start_conversation():
     data = request.json
     title = data.get('title', '')  # Get the title from the request data, default to an empty string if not provided
@@ -64,7 +70,7 @@ def summarize_conversation(conv_id):
     # Replace the conversation history with the summary
     conversations[conv_id] = [{"role": "system", "content": summary}]
 
-@app.route('/add_to_conversation', methods=['POST'])
+@app.route('/api/add_to_conversation', methods=['POST'])
 def add_to_conversation():
     data = request.json
     conv_id = data.get('conversation_id')
@@ -111,14 +117,14 @@ def add_to_conversation():
 
     return jsonify({"response": response, "conversation_id": conv_id}), 200
 
-@app.route('/list_conversations', methods=['GET'])
+@app.route('/api/list_conversations', methods=['GET'])
 def list_conversations():
     # Scan the table to get all conversations
     response = conversations.scan()
     conv_list = [{"id": conv['id'], "title": conv['title']} for conv in response['Items']]
     return jsonify(conv_list), 200
 
-@app.route('/get_conversation/<conv_id>', methods=['GET'])
+@app.route('/api/get_conversation/<conv_id>', methods=['GET'])
 def get_conversation(conv_id):
     # Get the conversation from the table
     response = conversations.get_item(Key={'id': conv_id})
@@ -129,7 +135,7 @@ def get_conversation(conv_id):
     else:
         return jsonify({"error": "Conversation not found"}), 404
 
-@app.route('/delete_conversation/<conv_id>', methods=['DELETE'])
+@app.route('/api/delete_conversation/<conv_id>', methods=['DELETE'])
 def delete_conversation(conv_id):
     # Try to delete the conversation from the table
     response = conversations.delete_item(Key={'id': conv_id})
@@ -179,6 +185,4 @@ def send_to_gpt4(question, conv_id):
     return completion.choices[0].message.content
 
 if __name__ == '__main__':
-    import logging
-    logging.basicConfig(filename='error.log', level=logging.DEBUG)
     app.run(debug=True)
