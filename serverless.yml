@@ -1,4 +1,4 @@
-service: aiamond-chatbot
+service: aiamond-gptbackend
 
 provider:
   name: aws
@@ -28,16 +28,63 @@ plugins:
 
 custom:
   wsgi:
-    app: app.app # your-handler-location should be the python file name without extension
+    app: app.app
     packRequirements: false
   pythonRequirements:
     dockerizePip: non-linux
+    layer: true
+    noDeploy:
+      - boto3
   dotenv:
     path: .env
+
+package:
+  include:
+    - app.py
+  exclude:
+    - node_modules/**
+    - venv/**
+
+resources:
+  Resources:
+    ApiGatewayUser:
+      Type: 'AWS::IAM::User'
+    ApiGatewayUserPolicy:
+      Type: 'AWS::IAM::Policy'
+      Properties:
+        PolicyName: 'ApiGatewayUserPolicy'
+        Users:
+          - Ref: ApiGatewayUser
+        PolicyDocument:
+          Statement:
+            - Effect: 'Allow'
+              Action:
+                - 'execute-api:Invoke'
+              Resource: '*'
+    ApiGatewayUserAccessKey:
+      Type: 'AWS::IAM::AccessKey'
+      Properties:
+        UserName:
+          Ref: ApiGatewayUser
+    ConversationsTable:
+      Type: 'AWS::DynamoDB::Table'
+      Properties:
+        TableName: 'Conversations'
+        AttributeDefinitions:
+          - AttributeName: 'id'
+            AttributeType: 'S'
+        KeySchema:
+          - AttributeName: 'id'
+            KeyType: 'HASH'
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
 
 functions:
   app:
     handler: wsgi_handler.handler
+    layers:
+      - Ref: PythonRequirementsLambdaLayer
     events:
       - http:
           path: /

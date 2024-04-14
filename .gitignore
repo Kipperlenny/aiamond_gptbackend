@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 notes.txt
+openai_layer/
 
 # npm dependencies
 node_modules
