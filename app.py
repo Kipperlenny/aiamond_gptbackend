@@ -9,7 +9,7 @@ from boto3.dynamodb.conditions import Key
 import logging
 
 logger = logging.getLogger()
-# logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 app = Flask(__name__)
 CORS(app)
@@ -44,10 +44,12 @@ def start_conversation():
 
 def summarize_conversation(conv_id):
     # Get the conversation history
-    conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversations[conv_id]])
+    response = conversations.get_item(Key={'id': conv_id})
+    conversation = response['Item']
+    conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation['history']])
 
     # Call the summarization API
-    summary = client.chat.completions.create(
+    response = client.chat.completions.create(
         model = GPT3_MODEL,
         messages=[
             {
@@ -65,10 +67,28 @@ def summarize_conversation(conv_id):
         top_p=1,
         frequency_penalty=0,
         presence_penalty=0
-    ).choices[0].message['content']  # Get the content of the response
-
+    )
+    
+    summary = response.choices[0].message.content  # Get the content of the response
+    
     # Replace the conversation history with the summary
-    conversations[conv_id] = [{"role": "system", "content": summary}]
+    conversations.update_item(
+        Key={'id': conv_id},
+        UpdateExpression='SET history = :val1',
+        ExpressionAttributeValues={
+            ':val1': [{"role": "system", "content": summary}]
+        }
+    )
+
+def save_to_conversation(conv_id, role, content):
+    # Add the message to the conversation history
+    conversations.update_item(
+        Key={'id': conv_id},
+        UpdateExpression='SET history = list_append(history, :val1)',
+        ExpressionAttributeValues={
+            ':val1': [{"role": role, "content": content}]
+        }
+    )
 
 @app.route('/api/add_to_conversation', methods=['POST'])
 def add_to_conversation():
@@ -88,7 +108,6 @@ def add_to_conversation():
                 'history': []
             }
         )
-        conversation = {'id': conv_id, 'title': title, 'history': []}
     else:
         conversation = conversations.get_item(Key={'id': conv_id})['Item']
         if not conversation:
@@ -97,25 +116,19 @@ def add_to_conversation():
     response = send_to_gpt4(question, conv_id)
 
     # Add the user's question to the conversation history
-    conversation['history'].append({"role": "user", "content": question})
+    save_to_conversation(conv_id, "user", question)
 
     # Add the assistant's response to the conversation history
-    conversation['history'].append({"role": "assistant", "content": response})
+    save_to_conversation(conv_id, "assistant", response)
 
     # If the conversation history exceeds a certain length, summarize it
     if len(conversation['history']) > 10:  # Change this to the desired limit
         summarize_conversation(conv_id)
 
-    # Update the conversation in the table
-    conversations.update_item(
-        Key={'id': conv_id},
-        UpdateExpression='SET history = :history',
-        ExpressionAttributeValues={
-            ':history': conversation['history']
-        }
-    )
+    # Get the updated conversation from the DynamoDB
+    conversation = conversations.get_item(Key={'id': conv_id})['Item']
 
-    return jsonify({"response": response, "conversation_id": conv_id}), 200
+    return jsonify({"response": response, "conversation_id": conv_id, "conversation": conversation}), 200
 
 @app.route('/api/list_conversations', methods=['GET'])
 def list_conversations():
