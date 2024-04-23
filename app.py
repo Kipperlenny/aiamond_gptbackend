@@ -90,6 +90,32 @@ def save_to_conversation(conv_id, role, content):
         }
     )
 
+def summarize_long_message(message):
+    # Call the summarization API
+    response = client.chat.completions.create(
+        model = GPT3_MODEL,
+        messages=[
+            {
+            "role": "system",
+            "content": "You are a helpful assistant that summarizes long messages."
+            },
+            {
+            "role": "user",
+            "content": message
+            }
+        ],
+        stream=False,
+        temperature=0,
+        max_tokens=2047,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
+    )
+    
+    summary = response.choices[0].message.content  # Get the content of the response
+
+    return summary
+
 @app.route('/api/add_to_conversation', methods=['POST'])
 def add_to_conversation():
     data = request.json
@@ -108,10 +134,16 @@ def add_to_conversation():
                 'history': []
             }
         )
+        
+        conversation = conversations.get_item(Key={'id': conv_id})['Item']
     else:
         conversation = conversations.get_item(Key={'id': conv_id})['Item']
         if not conversation:
             return jsonify({"error": "Conversation not found"}), 404
+
+    # Check if the question is too long and summarize it if necessary
+    if len(question) > 1000:  # Change this to the desired limit
+        question = summarize_long_message(question)
 
     response = send_to_gpt4(question, conv_id)
 
@@ -121,9 +153,9 @@ def add_to_conversation():
     # Add the assistant's response to the conversation history
     save_to_conversation(conv_id, "assistant", response)
 
-    # If the conversation history exceeds a certain length, summarize it
-    if len(conversation['history']) > 10:  # Change this to the desired limit
-        summarize_conversation(conv_id)
+    # If the conversation history exceeds a certain length, summarize the first part of it
+    if conversation['history'] and len(conversation['history']) > 20:  # Change this to the desired limit
+        summarize_conversation(conv_id, 10)  # Summarize the first 10 messages
 
     # Get the updated conversation from the DynamoDB
     conversation = conversations.get_item(Key={'id': conv_id})['Item']

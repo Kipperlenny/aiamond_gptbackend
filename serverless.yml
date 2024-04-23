@@ -11,7 +11,7 @@ provider:
     GPT3_MODEL: ${env:GPT3_MODEL}
     GPT4_MODEL: ${env:GPT4_MODEL}
   memorySize: 256 # minimum memory size for Lambda
-  timeout: 30 # timeout for Lambda
+  timeout: 90 # timeout for Lambda
   logRetentionInDays: 7 # keep logs for 7 days
   apiGateway:
     shouldStartNameWithService: true
