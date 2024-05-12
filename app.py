@@ -155,7 +155,7 @@ def add_to_conversation():
 
     # If the conversation history exceeds a certain length, summarize the first part of it
     if conversation['history'] and len(conversation['history']) > 20:  # Change this to the desired limit
-        summarize_conversation(conv_id, 10)  # Summarize the first 10 messages
+        summarize_conversation(conv_id)  # Summarize the first 10 messages
 
     # Get the updated conversation from the DynamoDB
     conversation = conversations.get_item(Key={'id': conv_id})['Item']
